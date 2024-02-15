@@ -34,6 +34,21 @@ pub mod solana_nft_anchor {
         );
 
         mint_to(cpi_context, 1)?;
+
+        //create metadata account
+        let cpi_context = CpiContext::new(
+            ctx.accounts.token_metadata_program.to_account_info(),
+            CreateMetadataAccountsV3 {
+                metadata: ctx.accounts.metadata_account.to_account_info(),
+                mint: ctx.accounts.mint.to_account_info(),
+                mint_authority: ctx.accounts.signer.to_account_info(),
+                update_authority: ctx.accounts.signer.to_account_info(),
+                payer: ctx.accounts.signer.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+                rent: ctx.accounts.rent.to_account_info(),
+            },
+        );
+
         Ok(())
     }
 }
@@ -67,12 +82,19 @@ pub struct InitNFT<'info> {
 
     #[account(
         mut,
+        address = find_metadata_account(&mint.key()).0,
+    )]
+    pub metadata_account: AccountInfo<'info>,
+
+    #[account(
+        mut,
         address = find_master_edition_account(&mint.key()).0,
     )]
     pub master_edition_account: AccountInfo<'info>,
 
     pub token_program: Program<'info, Token>, // new
     pub associated_token_program: Program<'info, AssociatedToken>, // new
+    pub token_metadata_program: Program<'info, Metadata>, // new
     pub system_program: Program<'info, System>, // bew
     pub rent: Sysvar<'info, Rent> // new
 }

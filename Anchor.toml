@@ -11,7 +11,7 @@ solana_nft_anchor = "2vLSwjewmNUkemqDwCy924ToVgZTgErx3mcnfF7XFSeu"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Localnet"
+cluster = "devnet"
 wallet = "/home/dezzy/.config/solana/id.json"
 
 [scripts]
