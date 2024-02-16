@@ -3,17 +3,16 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     metadata::{
         Metadata,
-        MetadataAccount,
-        CreateMasterEditionV3,
         CreateMetadataAccountsV3,
+        CreateMasterEditionV3,
         create_master_edition_v3,
         create_metadata_accounts_v3,
+        mpl_token_metadata::types::DataV2,
     },
     token::{Mint, MintTo, mint_to, Token, TokenAccount},
 };
-use mpl_token_metadata::{
-    pda::{find_master_edition_account, find_metadata_account}, // new
-    state::DataV2,
+use mpl_token_metadata::accounts::{
+    MasterEdition, Metadata as MetadataAccount
 };
 
 declare_id!("2vLSwjewmNUkemqDwCy924ToVgZTgErx3mcnfF7XFSeu");
@@ -22,7 +21,12 @@ declare_id!("2vLSwjewmNUkemqDwCy924ToVgZTgErx3mcnfF7XFSeu");
 pub mod solana_nft_anchor {
     use super::*;
 
-    pub fn init_nft(ctx: Context<InitNFT>) -> Result<()> {
+    pub fn init_nft(
+        ctx: Context<InitNFT>,
+        name: String,
+        symbol: String,
+        uri: String,
+    ) -> Result<()> {
         //create mint account
         let cpi_context = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
@@ -49,12 +53,45 @@ pub mod solana_nft_anchor {
             },
         );
 
+        let data_v2 = DataV2 {
+            name,
+            symbol,
+            uri,
+            seller_fee_basis_points: 0,
+            creators: None,
+            collection: None,
+            uses: None,
+        };
+
+        create_metadata_accounts_v3(cpi_context, data_v2, false, true, None)?;
+
+        // Create master edition account
+
+        let cpi_context = CpiContext::new(
+            ctx.accounts.token_metadata_program.to_account_info(),
+            CreateMasterEditionV3 {
+                edition: ctx.accounts.master_edition_account.to_account_info(),
+                mint: ctx.accounts.mint.to_account_info(),
+                update_authority: ctx.accounts.signer.to_account_info(),
+                mint_authority: ctx.accounts.signer.to_account_info(),
+                payer: ctx.accounts.signer.to_account_info(),
+                metadata: ctx.accounts.metadata_account.to_account_info(),
+                token_program: ctx.accounts.token_program.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+                rent: ctx.accounts.rent.to_account_info(),
+            }
+        );
+
+        create_master_edition_v3(cpi_context, None)?;
+
+
         Ok(())
     }
 }
 
 #[derive(Accounts)]
 pub struct InitNFT<'info> {
+    /// CHECK: ok, we are passing in this account ourselves
     #[account(mut, signer)]
     signer: AccountInfo<'info>,
     #[account(
@@ -76,19 +113,14 @@ pub struct InitNFT<'info> {
 
     #[account(
         mut,
-        address = find_master_edition_account(&mint.key()).0,
-    )]
-    pub metadata: AccountInfo<'info>,
-
-    #[account(
-        mut,
-        address = find_metadata_account(&mint.key()).0,
+        address = MetadataAccount::find_pda(&mint.key()).0,
     )]
     pub metadata_account: AccountInfo<'info>,
 
+    /// CHECK: address
     #[account(
         mut,
-        address = find_master_edition_account(&mint.key()).0,
+        address = MasterEdition::find_pda(&mint.key()).0,
     )]
     pub master_edition_account: AccountInfo<'info>,
 
